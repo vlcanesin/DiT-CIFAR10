@@ -150,7 +150,7 @@ class DiT(nn.Module):
         self,
         input_size=32,
         patch_size=2,
-        in_channels=4,
+        in_channels=3,   ###### CHANGED (latent space -> pixel space)
         hidden_size=1152,
         depth=28,
         num_heads=16,
@@ -168,7 +168,18 @@ class DiT(nn.Module):
 
         self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, hidden_size, bias=True)
         self.t_embedder = TimestepEmbedder(hidden_size)
-        self.y_embedder = LabelEmbedder(num_classes, hidden_size, class_dropout_prob)
+
+        ### MODIFIED CODE ###
+
+        # self.y_embedder = LabelEmbedder(num_classes, hidden_size, class_dropout_prob)
+
+        if num_classes > 0:
+            self.y_embedder = LabelEmbedder(num_classes, hidden_size, class_dropout_prob)
+        else:
+            self.y_embedder = None
+        
+        ### END OF MODIFIED CODE ###
+
         num_patches = self.x_embedder.num_patches
         # Will use fixed sin-cos embedding:
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, hidden_size), requires_grad=False)
@@ -197,8 +208,15 @@ class DiT(nn.Module):
         nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
         nn.init.constant_(self.x_embedder.proj.bias, 0)
 
+        ### MODIFIED CODE ###
+
         # Initialize label embedding table:
-        nn.init.normal_(self.y_embedder.embedding_table.weight, std=0.02)
+        # nn.init.normal_(self.y_embedder.embedding_table.weight, std=0.02)
+
+        if self.y_embedder is not None:
+            nn.init.normal_(self.y_embedder.embedding_table.weight, std=0.02)
+
+        ### END OF MODIFIED CODE ###
 
         # Initialize timestep embedding MLP:
         nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
@@ -239,7 +257,18 @@ class DiT(nn.Module):
         """
         x = self.x_embedder(x) + self.pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
         t = self.t_embedder(t)                   # (N, D)
-        y = self.y_embedder(y, self.training)    # (N, D)
+        
+        ### MODIFIED CODE ###
+        
+        # y = self.y_embedder(y, self.training)    # (N, D)
+
+        if self.y_embedder is not None:
+            y = self.y_embedder(y, self.training)
+        else:
+            y = 0
+
+        ### END OF MODIFIED CODE ###
+
         c = t + y                                # (N, D)
         for block in self.blocks:
             x = block(x, c)                      # (N, T, D)

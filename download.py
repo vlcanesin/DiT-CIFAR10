@@ -9,6 +9,7 @@ Functions for downloading pre-trained DiT models
 """
 from torchvision.datasets.utils import download_url
 import torch
+import argparse
 import os
 
 
@@ -23,6 +24,9 @@ def find_model(model_name):
         return download_model(model_name)
     else:  # Load a custom DiT checkpoint:
         assert os.path.isfile(model_name), f'Could not find DiT checkpoint at {model_name}'
+
+        # Allow argparse.Namespace to be unpickled safely
+        torch.serialization.add_safe_globals([argparse.Namespace])
         checkpoint = torch.load(model_name, map_location=lambda storage, loc: storage)
         if "ema" in checkpoint:  # supports checkpoints from train.py
             checkpoint = checkpoint["ema"]
